@@ -6,8 +6,15 @@
 #include <string>
 #include <vector>
 
-// How the homework part of the final grade is calculated.
-enum class GradeMethod { Average, Median };
+// How the homework part of the final grade is calculated / displayed.
+enum class GradeMethod { Average, Median, Both };
+
+// Column layout used by operator<< (shared by all Person objects).
+struct OutputFormat {
+    GradeMethod method = GradeMethod::Average;
+    int nameWidth = 11;
+    int surnameWidth = 14;
+};
 
 // One student: name, surname, homework results, exam result and final grade.
 // Homework results are stored in a std::vector, so the number of results does
@@ -26,12 +33,14 @@ public:
     const std::string& surname() const { return surname_; }
     const std::vector<int>& homework() const { return homework_; }
     int exam() const { return exam_; }
-    double finalGrade() const { return final_; }
+    double finalAverage() const { return finalAvg_; }
+    double finalMedian() const { return finalMed_; }
 
     void setName(const std::string& name) { name_ = name; }
     void setSurname(const std::string& surname) { surname_ = surname; }
 
     // Final = 0.4 * HW + 0.6 * Exam, HW = average or median of homework.
+    // Average/Median calculate one value, Both calculates the two of them.
     double calculateFinal(GradeMethod method);
 
     // Fills homework (hwCount results) and exam with random grades 1..10.
@@ -39,6 +48,8 @@ public:
 
     static double average(const std::vector<int>& values);
     static double median(std::vector<int> values);
+
+    static OutputFormat format;   // controls what operator<< prints
 
     friend std::istream& operator>>(std::istream& is, Person& p);
     friend std::ostream& operator<<(std::ostream& os, const Person& p);
@@ -48,7 +59,8 @@ private:
     std::string surname_;
     std::vector<int> homework_;
     int exam_;
-    double final_;
+    double finalAvg_;
+    double finalMed_;
 };
 
 #endif

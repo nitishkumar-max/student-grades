@@ -1,0 +1,11 @@
+Name        Surname            HW1   HW2   HW3   HW4   HW5   Exam
+Jonas       Jonaitis             8     9    10     6    10      9
+Ana         Petraite             7    10     8     5     4      6
+Tomas       Kazlauskas           5     6     7     8     9      7
+Ieva        Stankute            10    10     9    10     8     10
+Lukas       Petrauskas           4     5     3     6     7      5
+Rasa        Vasiliauskiene       9     8     9     7    10      8
+Marius      Zukauskas            6     7     6     5     8      4
+Greta       Butkute              9     9    10    10     9      9
+Andrius     Paulauskas           3     4     5     4     6      6
+Egle        Urbonaite            7     8     6     9     7      8

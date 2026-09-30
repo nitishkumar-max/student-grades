@@ -18,16 +18,20 @@ int randomGrade() {
 }
 }  // namespace
 
-Person::Person() : exam_(0), final_(0.0) {}
+OutputFormat Person::format;
+
+Person::Person() : exam_(0), finalAvg_(0.0), finalMed_(0.0) {}
 
 Person::Person(std::string name, std::string surname,
                std::vector<int> homework, int exam)
     : name_(std::move(name)), surname_(std::move(surname)),
-      homework_(std::move(homework)), exam_(exam), final_(0.0) {}
+      homework_(std::move(homework)), exam_(exam),
+      finalAvg_(0.0), finalMed_(0.0) {}
 
 Person::Person(const Person& other)
     : name_(other.name_), surname_(other.surname_),
-      homework_(other.homework_), exam_(other.exam_), final_(other.final_) {}
+      homework_(other.homework_), exam_(other.exam_),
+      finalAvg_(other.finalAvg_), finalMed_(other.finalMed_) {}
 
 Person& Person::operator=(const Person& other) {
     if (this != &other) {
@@ -35,7 +39,8 @@ Person& Person::operator=(const Person& other) {
         surname_ = other.surname_;
         homework_ = other.homework_;
         exam_ = other.exam_;
-        final_ = other.final_;
+        finalAvg_ = other.finalAvg_;
+        finalMed_ = other.finalMed_;
     }
     return *this;
 }
@@ -60,9 +65,11 @@ double Person::median(std::vector<int> values) {
 }
 
 double Person::calculateFinal(GradeMethod method) {
-    double hw = method == GradeMethod::Median ? median(homework_) : average(homework_);
-    final_ = 0.4 * hw + 0.6 * exam_;
-    return final_;
+    if (method != GradeMethod::Median)
+        finalAvg_ = 0.4 * average(homework_) + 0.6 * exam_;
+    if (method != GradeMethod::Average)
+        finalMed_ = 0.4 * median(homework_) + 0.6 * exam_;
+    return method == GradeMethod::Median ? finalMed_ : finalAvg_;
 }
 
 void Person::randomizeGrades(std::size_t hwCount) {
@@ -119,9 +126,16 @@ std::istream& operator>>(std::istream& is, Person& p) {
 }
 
 std::ostream& operator<<(std::ostream& os, const Person& p) {
-    os << std::left << std::setw(11) << p.name_
-       << std::setw(14) << p.surname_
-       << std::right << std::setw(18) << std::fixed << std::setprecision(2)
-       << p.final_;
+    const OutputFormat& f = Person::format;
+    os << std::left << std::setw(f.nameWidth) << p.name_
+       << std::setw(f.surnameWidth) << p.surname_
+       << std::right << std::fixed << std::setprecision(2);
+    switch (f.method) {
+        case GradeMethod::Average: os << std::setw(18) << p.finalAvg_; break;
+        case GradeMethod::Median:  os << std::setw(18) << p.finalMed_; break;
+        case GradeMethod::Both:
+            os << std::setw(12) << p.finalAvg_ << " | " << std::setw(12) << p.finalMed_;
+            break;
+    }
     return os;
 }

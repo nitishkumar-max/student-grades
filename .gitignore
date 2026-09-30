@@ -6,5 +6,5 @@ student_grades.exe
 build/
 
 # Large generated data sets and program output
-students*.txt
+students[0-9]*.txt
 results*.txt
