@@ -3,35 +3,37 @@
 
 #include <algorithm>
 #include <iomanip>
-#include <vector>
+#include <random>
+#include <utility>
 
-Person::Person()
-    : homework_(nullptr), hwCount_(0), exam_(0), final_(0.0) {}
-
-Person::Person(const std::string& name, const std::string& surname,
-               const int* homework, std::size_t hwCount, int exam)
-    : name_(name), surname_(surname),
-      homework_(hwCount ? new int[hwCount] : nullptr), hwCount_(hwCount),
-      exam_(exam), final_(0.0) {
-    std::copy(homework, homework + hwCount, homework_);
+namespace {
+std::mt19937& randomEngine() {
+    static std::mt19937 engine{std::random_device{}()};
+    return engine;
 }
+
+int randomGrade() {
+    static std::uniform_int_distribution<int> dist(1, 10);
+    return dist(randomEngine());
+}
+}  // namespace
+
+Person::Person() : exam_(0), final_(0.0) {}
+
+Person::Person(std::string name, std::string surname,
+               std::vector<int> homework, int exam)
+    : name_(std::move(name)), surname_(std::move(surname)),
+      homework_(std::move(homework)), exam_(exam), final_(0.0) {}
 
 Person::Person(const Person& other)
     : name_(other.name_), surname_(other.surname_),
-      homework_(other.hwCount_ ? new int[other.hwCount_] : nullptr),
-      hwCount_(other.hwCount_), exam_(other.exam_), final_(other.final_) {
-    std::copy(other.homework_, other.homework_ + other.hwCount_, homework_);
-}
+      homework_(other.homework_), exam_(other.exam_), final_(other.final_) {}
 
 Person& Person::operator=(const Person& other) {
     if (this != &other) {
-        int* copy = other.hwCount_ ? new int[other.hwCount_] : nullptr;
-        std::copy(other.homework_, other.homework_ + other.hwCount_, copy);
-        delete[] homework_;
-        homework_ = copy;
-        hwCount_ = other.hwCount_;
         name_ = other.name_;
         surname_ = other.surname_;
+        homework_ = other.homework_;
         exam_ = other.exam_;
         final_ = other.final_;
     }
@@ -39,59 +41,80 @@ Person& Person::operator=(const Person& other) {
 }
 
 Person::~Person() {
-    delete[] homework_;
+    homework_.clear();
 }
 
-double Person::homeworkAverage() const {
-    if (hwCount_ == 0) return 0.0;
+double Person::average(const std::vector<int>& values) {
+    if (values.empty()) return 0.0;
     double sum = 0.0;
-    for (std::size_t i = 0; i < hwCount_; ++i) sum += homework_[i];
-    return sum / static_cast<double>(hwCount_);
+    for (int v : values) sum += v;
+    return sum / static_cast<double>(values.size());
 }
 
-double Person::homeworkMedian() const {
-    if (hwCount_ == 0) return 0.0;
-    std::vector<int> sorted(homework_, homework_ + hwCount_);
-    std::sort(sorted.begin(), sorted.end());
-    std::size_t mid = hwCount_ / 2;
-    if (hwCount_ % 2 == 0) return (sorted[mid - 1] + sorted[mid]) / 2.0;
-    return sorted[mid];
+double Person::median(std::vector<int> values) {
+    if (values.empty()) return 0.0;
+    std::sort(values.begin(), values.end());
+    std::size_t mid = values.size() / 2;
+    if (values.size() % 2 == 0) return (values[mid - 1] + values[mid]) / 2.0;
+    return values[mid];
 }
 
-double Person::calculateFinal(bool useMedian) {
-    double hw = useMedian ? homeworkMedian() : homeworkAverage();
+double Person::calculateFinal(GradeMethod method) {
+    double hw = method == GradeMethod::Median ? median(homework_) : average(homework_);
     final_ = 0.4 * hw + 0.6 * exam_;
     return final_;
 }
 
-// Input: when reading from the keyboard the user is guided with prompts;
-// from any other stream the format is: Name Surname n hw1 ... hwn exam
+void Person::randomizeGrades(std::size_t hwCount) {
+    homework_.clear();
+    homework_.reserve(hwCount);
+    for (std::size_t i = 0; i < hwCount; ++i) homework_.push_back(randomGrade());
+    exam_ = randomGrade();
+}
+
+// Input.
+// Keyboard: the user is guided with prompts and types homework results one by
+// one; an empty line ends the list, so their number is not known in advance.
+// Other streams: one record "Name Surname hw1 hw2 ... hwn exam" (the last
+// number is the exam result).
 std::istream& operator>>(std::istream& is, Person& p) {
     std::string name, surname;
-    int n = 0, exam = 0;
-    int* hw = nullptr;
+    std::vector<int> hw;
+    int exam = 0;
 
     if (&is == &std::cin) {
         name = readWord(is, "  First name: ");
         surname = readWord(is, "  Surname: ");
-        n = readInt(is, "  Number of homework results: ", 1, 100);
-        hw = new int[n];
-        for (int i = 0; i < n; ++i)
-            hw[i] = readInt(is, "    HW" + std::to_string(i + 1) + " (1-10): ", 1, 10);
+        std::cout << "  Homework results (1-10), one per line. "
+                     "Press Enter on an empty line to finish.\n";
+        while (true) {
+            std::string line = readLine(is, "    HW" + std::to_string(hw.size() + 1) + ": ");
+            if (line.find_first_not_of(" \t") == std::string::npos) {
+                if (!hw.empty()) break;
+                std::cout << "    Enter at least one homework result.\n";
+                continue;
+            }
+            int value = 0;
+            if (parseInt(line, value) && value >= 1 && value <= 10)
+                hw.push_back(value);
+            else
+                std::cout << "    Please enter a whole number from 1 to 10.\n";
+        }
         exam = readInt(is, "  Exam result (1-10): ", 1, 10);
     } else {
-        if (!(is >> name >> surname >> n) || n < 0) {
+        if (!(is >> name >> surname)) return is;
+        int value;
+        while (is >> value) hw.push_back(value);
+        if (hw.empty()) {                // no numbers at all: invalid record
             is.setstate(std::ios::failbit);
             return is;
         }
-        hw = new int[n > 0 ? n : 1];
-        for (int i = 0; i < n; ++i) is >> hw[i];
-        is >> exam;
-        if (!is) { delete[] hw; return is; }
+        is.clear(is.rdstate() & ~std::ios::failbit);
+        exam = hw.back();
+        hw.pop_back();
     }
 
-    p = Person(name, surname, hw, static_cast<std::size_t>(n), exam);
-    delete[] hw;
+    p = Person(name, surname, hw, exam);
     return is;
 }
 
