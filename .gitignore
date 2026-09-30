@@ -1,0 +1,10 @@
+# Build outputs
+student_grades
+student_grades.exe
+*.o
+*.obj
+build/
+
+# Large generated data sets and program output
+students*.txt
+results*.txt
