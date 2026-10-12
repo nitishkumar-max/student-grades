@@ -8,3 +8,5 @@ build/
 # Large generated data sets and program output
 students[0-9]*.txt
 results*.txt
+*_passed.txt
+*_failed.txt

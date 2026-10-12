@@ -1,7 +1,8 @@
 #ifndef INPUT_UTILS_H
 #define INPUT_UTILS_H
 
-#include <cstdlib>
+#include "Exceptions.h"
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -10,13 +11,11 @@
 
 // Reads one full line from `is`, shows `prompt` first (when not empty) and
 // strips a trailing '\r' (files saved on Windows).
+// Throws InputEnded when there is nothing more to read.
 inline std::string readLine(std::istream& is, const std::string& prompt = "") {
     if (!prompt.empty()) std::cout << prompt;
     std::string line;
-    if (!std::getline(is, line)) {
-        std::cout << "\nInput ended. Exiting.\n";
-        std::exit(0);
-    }
+    if (!std::getline(is, line)) throw InputEnded();
     if (!line.empty() && line.back() == '\r') line.pop_back();
     return line;
 }

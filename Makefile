@@ -1,13 +1,18 @@
 CXX      ?= g++
 CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra -pedantic
 TARGET   := student_grades
-SOURCES  := main.cpp Person.cpp
-HEADERS  := Person.h InputUtils.h
+SOURCES  := main.cpp Application.cpp Benchmark.cpp FileGenerator.cpp Person.cpp \
+            StringUtils.cpp StudentFile.cpp StudentProcessor.cpp TablePrinter.cpp
+OBJECTS  := $(SOURCES:.cpp=.o)
+HEADERS  := $(wildcard *.h)
 
-$(TARGET): $(SOURCES) $(HEADERS)
-	$(CXX) $(CXXFLAGS) -o $@ $(SOURCES)
+$(TARGET): $(OBJECTS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
+
+%.o: %.cpp $(HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(TARGET) $(TARGET).exe
+	rm -f $(TARGET) $(TARGET).exe $(OBJECTS)
 
 .PHONY: clean

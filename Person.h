@@ -18,16 +18,25 @@ struct OutputFormat {
 
 // One student: name, surname, homework results, exam result and final grade.
 // Homework results are stored in a std::vector, so the number of results does
-// not need to be known in advance. The rule of three is still written out
-// explicitly as required by the task.
+// not need to be known in advance.
+// The special member functions are written out explicitly (rule of five:
+// copy and move constructors, copy and move assignment, destructor). The move
+// operations matter for speed: students are moved, not copied, when the
+// container grows and when it is split into "passed" and "failed".
 class Person {
 public:
+    static constexpr int kMinGrade = 1;
+    static constexpr int kMaxGrade = 10;
+
     Person();
+    // Throws std::invalid_argument when a grade is outside 1..10.
     Person(std::string name, std::string surname,
            std::vector<int> homework, int exam);
-    Person(const Person& other);              // rule of three: copy constructor
-    Person& operator=(const Person& other);   // rule of three: copy assignment
-    ~Person();                                // rule of three: destructor
+    Person(const Person& other);
+    Person& operator=(const Person& other);
+    Person(Person&& other) noexcept;
+    Person& operator=(Person&& other) noexcept;
+    ~Person();
 
     const std::string& name() const { return name_; }
     const std::string& surname() const { return surname_; }
@@ -35,19 +44,29 @@ public:
     int exam() const { return exam_; }
     double finalAverage() const { return finalAvg_; }
     double finalMedian() const { return finalMed_; }
+    // Final grade by the given method (Both counts as Average).
+    double finalGrade(GradeMethod method) const {
+        return method == GradeMethod::Median ? finalMed_ : finalAvg_;
+    }
 
     void setName(const std::string& name) { name_ = name; }
     void setSurname(const std::string& surname) { surname_ = surname; }
 
     // Final = 0.4 * HW + 0.6 * Exam, HW = average or median of homework.
     // Average/Median calculate one value, Both calculates the two of them.
+    // Throws std::domain_error when the student has no homework results.
     double calculateFinal(GradeMethod method);
 
     // Fills homework (hwCount results) and exam with random grades 1..10.
     void randomizeGrades(std::size_t hwCount);
 
+    // Both throw std::domain_error for an empty list.
     static double average(const std::vector<int>& values);
     static double median(std::vector<int> values);
+
+    // Parses one line "Name Surname hw1 ... hwn exam" (the last number is the
+    // exam result). Throws std::invalid_argument if the line is malformed.
+    static Person parse(const std::string& line);
 
     static OutputFormat format;   // controls what operator<< prints
 
