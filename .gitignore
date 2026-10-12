@@ -10,3 +10,4 @@ students[0-9]*.txt
 results*.txt
 *_passed.txt
 *_failed.txt
+student_grades_*

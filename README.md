@@ -1,123 +1,122 @@
 # Student Grade Calculator
 
-A C++ console application that collects students' homework and exam results,
-calculates each student's **final grade**, and can split large student lists
-into "passed" and "failed" files while measuring how long every step takes.
+A C++ console application that calculates students' final grades
+(`Final = 0.4 * HW + 0.6 * Exam`, HW = average or median) and splits large
+student lists into "passed" (final >= 5.0) and "failed" (final < 5.0) files,
+measuring how long every step takes.
 
-## Final grade formula
+**v0.25** is the same program as v0.2, built with three different containers
+to compare their speed: `std::vector`, `std::list` and `std::deque`.
 
-```
-Final = 0.4 * HW + 0.6 * Exam
-```
+## How the container is chosen
 
-`HW` is the average or the median of the homework results (all results are on
-a 1 to 10 scale). A student with a final grade **below 5.0 is "failed"**,
-otherwise "passed".
+All the code uses only the type `StudentContainer`, defined in `Container.h`.
+It is selected at compile time, so the three programs are built from exactly
+the same sources:
 
-## Project structure (v0.2)
+| Program                 | Container      | Compiler flag                |
+|-------------------------|----------------|------------------------------|
+| `student_grades_vector` | `std::vector`  | (none)                       |
+| `student_grades_list`   | `std::list`    | `-DSTUDENT_CONTAINER_LIST`   |
+| `student_grades_deque`  | `std::deque`   | `-DSTUDENT_CONTAINER_DEQUE`  |
 
-| File                         | What it contains                                                         |
-|------------------------------|--------------------------------------------------------------------------|
-| `Person.h/.cpp`              | `Person` class (rule of five, `>>` / `<<`, final grade, line parser)      |
-| `Container.h`                | `StudentContainer` (here `std::vector<Person>`) and its helper functions  |
-| `StudentProcessor.h/.cpp`    | `StudentProcessor` class: sorting and splitting into passed / failed      |
-| `StudentFile.h/.cpp`         | `StudentFile` class: reading and writing student files                    |
-| `FileGenerator.h/.cpp`       | `StudentFileGenerator` class: random test files                           |
-| `Benchmark.h/.cpp`           | `Benchmark` class: timed pipeline read -> sort -> split -> write          |
-| `TablePrinter.h/.cpp`        | `TablePrinter` class: formatted table output                              |
-| `Application.h/.cpp`         | `Application` class: menu and user dialogue                               |
-| `Exceptions.h`               | program-specific exception classes                                        |
-| `InputUtils.h`, `StringUtils.h/.cpp`, `Timer.h`, `Version.h` | small helpers (safe input, natural string order, stopwatch) |
-| `main.cpp`                   | creates `Application` and handles fatal errors                            |
+Differences that the change makes in `Container.h`:
 
-## Exception handling
+- `std::list` has no random access, so it is sorted with its own member
+  function `list::sort`; the other two use `std::sort`;
+- only `std::vector` can `reserve` memory in advance.
 
-| Situation                                              | Exception                                   | Handled                                             |
-|--------------------------------------------------------|---------------------------------------------|-----------------------------------------------------|
-| input file does not exist / cannot be opened           | `FileOpenError`                             | the program asks for another file name              |
-| output file cannot be created                          | `FileCreateError`                           | the program asks for another file name              |
-| read/write fails half-way (e.g. disk full)             | `FileIOError`                               | message, back to the menu                           |
-| file has no valid student records                      | `DataError`                                 | message, back to the menu                           |
-| a line is malformed or a grade is outside 1..10        | `std::invalid_argument` (`Person`)          | the line is skipped and counted                     |
-| average / median of an empty homework list             | `std::domain_error`                         | the line is skipped                                 |
-| index outside a vector in the median calculation       | `std::out_of_range` (from `vector::at`)     | message, back to the menu                           |
-| not enough memory for a huge data set                  | `std::bad_alloc`                            | message, back to the menu (that file is skipped in the speed test) |
-| keyboard input ends (Ctrl+D / Ctrl+Z)                  | `InputEnded`                                | the program exits cleanly                           |
-
-## Menu
-
-```
-1 - Type names and all results by hand
-2 - Type names, generate results randomly
-3 - Generate names and results randomly
-4 - Read from a file (e.g. Students.txt), sort and show
-5 - Generate the five test files (1 000 ... 10 000 000 students)
-6 - Read a file, sort, split into passed/failed, save two files (timed)
-7 - Speed test: option 6 on all five test files
-0 - Exit
-```
-
-Options 1-4 work as in v0.1. Option 5 creates `students1000.txt`,
-`students10000.txt`, `students100000.txt`, `students1000000.txt` and
-`students10000000.txt` (`Name1 Surname1 ...`, random grades 1..10).
-Option 6 reads one file, sorts it (by name, surname or final grade), splits it
-and writes `<file>_passed.txt` and `<file>_failed.txt`. Option 7 repeats this
-for all five test files and prints a Markdown table.
-
-## Input file format
-
-The first line is a header. Every other line has a name, a surname, any
-number of homework results and the exam result as the last number:
-
-```
-Name        Surname            HW1   HW2   HW3   HW4   HW5   Exam
-Jonas       Jonaitis             8     9    10     6    10      9
-```
+Everything else (reading, splitting, writing, timing) is identical.
 
 ## Building
 
-With g++ (Linux, macOS, or MinGW on Windows):
-
 ```
-make
-./student_grades
+make                      # builds all three programs
+make student_grades_list  # or just one of them
 ```
 
-With CMake (also works with Visual Studio):
+or with CMake:
 
 ```
 cmake -S . -B build
 cmake --build build --config Release
 ```
 
-Standard C++17 only. Speed measurements must be made with an optimised
-(Release / `-O2`) build.
+The program, its menu, the file format, the exception handling and the project
+structure are described in the v0.2 README. Run the program, choose
+**5** once to generate the five test files, then **7** to run the speed test.
+Speed measurements must be made with an optimised (Release / `-O2`) build.
 
-## Speed analysis (v0.2, `std::vector`)
+## Speed analysis
 
 Computer: Intel Core Ultra 9 185H, test run in a Linux virtual machine with
 2 CPU cores and 4 GB RAM, SSD; g++ `-O2`.  
 Data: 5 homework results + exam per student. Final grade: average, sorted by:
 final grade, times in seconds.
 
-| File                 | Students   | Passed    | Failed    | Read  | Sort   | Split | Write | Total  |
-|----------------------|-----------:|----------:|----------:|------:|-------:|------:|------:|-------:|
-| students1000.txt     | 1 000      | 579       | 421       | 0.001 | 0.000  | 0.000 | 0.001 | 0.001  |
-| students10000.txt    | 10 000     | 5 821     | 4 179     | 0.003 | 0.004  | 0.000 | 0.002 | 0.009  |
-| students100000.txt   | 100 000    | 58 660    | 41 340    | 0.023 | 0.069  | 0.008 | 0.018 | 0.119  |
-| students1000000.txt  | 1 000 000  | 586 396   | 413 604   | 0.286 | 0.974  | 0.174 | 0.232 | 1.665  |
-| students10000000.txt | 10 000 000 | 5 867 285 | 4 132 715 | 3.264 | 11.790 | 1.096 | 1.832 | 17.981 |
+### std::vector
 
-Generating the five files took 0.001, 0.002, 0.015, 0.141 and 1.504 s.
-Sorting is the slowest step; every step grows roughly linearly with the
-number of students (sorting slightly faster, as n log n).
+| Students   | Read  | Sort   | Split | Write  | Total  |
+|-----------:|------:|-------:|------:|-------:|-------:|
+| 1 000      | 0.003 | 0.000 | 0.000 | 0.001 | 0.004 |
+| 10 000     | 0.005 | 0.004 | 0.000 | 0.002 | 0.011 |
+| 100 000    | 0.026 | 0.069 | 0.009 | 0.019 | 0.122 |
+| 1 000 000  | 0.249 | 0.843 | 0.103 | 0.226 | 1.420 |
+| 10 000 000 | 3.106 | 11.563 | 1.001 | 2.295 | 17.966 |
 
-The generated data files are not stored in the repository (they are large).
+### std::list
+
+| Students   | Read  | Sort   | Split | Write  | Total  |
+|-----------:|------:|-------:|------:|-------:|-------:|
+| 1 000      | 0.001 | 0.000 | 0.000 | 0.001 | 0.001 |
+| 10 000     | 0.002 | 0.002 | 0.001 | 0.002 | 0.008 |
+| 100 000    | 0.022 | 0.056 | 0.036 | 0.025 | 0.140 |
+| 1 000 000  | 0.281 | 1.513 | 0.688 | 0.254 | 2.735 |
+| 10 000 000 | 2.682 | 25.902 | 8.390 | 10.508 | 47.483 |
+
+### std::deque
+
+| Students   | Read  | Sort   | Split | Write  | Total  |
+|-----------:|------:|-------:|------:|-------:|-------:|
+| 1 000      | 0.001 | 0.000 | 0.000 | 0.001 | 0.002 |
+| 10 000     | 0.003 | 0.005 | 0.000 | 0.003 | 0.011 |
+| 100 000    | 0.023 | 0.122 | 0.006 | 0.061 | 0.212 |
+| 1 000 000  | 0.258 | 0.986 | 0.073 | 0.199 | 1.515 |
+| 10 000 000 | 2.446 | 12.751 | 0.815 | 5.380 | 21.393 |
+
+### Comparison for 10 000 000 students
+
+| Step  | std::vector | std::list | std::deque |
+|-------|------------:|----------:|-----------:|
+| Read  | 3.106       | 2.682     | 2.446      |
+| Sort  | 11.563      | 25.902    | 12.751     |
+| Split | 1.001       | 8.390     | 0.815      |
+| Write | 2.295       | 10.508    | 5.380      |
+| Total | 17.966      | 47.483    | 21.393     |
+| Peak memory | 2.8 GB | 3.1 GB  | 2.6 GB     |
+
+### Conclusions
+
+- **std::vector** is the fastest overall (18.0 s for 10 million students).
+  Its elements lie in one continuous block of memory, which the processor
+  cache handles best, and `std::sort` works directly on it.
+- **std::deque** is almost as fast (21.4 s). It also has random-access
+  iterators, so it uses `std::sort` too; its memory is split into blocks, so
+  reading (no reallocation when it grows) and splitting were slightly faster,
+  but sorting and writing a little slower than with a vector.
+- **std::list** is clearly the slowest on large data (47.5 s, about 2.6 times
+  slower than vector). Every student is a separate node somewhere in memory,
+  so walking through the list causes many cache misses: sorting
+  (`list::sort`) took twice as long, and splitting and writing were 5-8
+  times slower. It also used the most memory (two extra pointers per student).
+- With small files (up to 100 000 students) all three containers take well
+  under a quarter of a second and the differences do not matter.
+- Conclusion: for this task `std::vector` is the best choice.
 
 ## Versions
 
-- **v0.1** - `Person` class, `>>`/`<<`, average/median final grade, `std::vector`,
-  random data, reading from a file, sorted and formatted output.
-- **v0.2** - code split into several `.h`/`.cpp` files and classes, exception
-  handling, generation of five test files, division into passed/failed files,
-  timing of every step.
+- **v0.1** - basic program (`Person`, `std::vector`).
+- **v0.2** - several `.h`/`.cpp` files, exceptions, test file generation,
+  passed/failed split, timing.
+- **v0.25** - the v0.2 code built with `std::vector`, `std::list` and
+  `std::deque`, with a speed comparison.
